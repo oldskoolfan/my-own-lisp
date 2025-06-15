@@ -4,7 +4,7 @@
 /*
  * construct a pointer to a new Number lval
  */
-lval* lval_num(long x) {
+lval* lval_num(double x) {
 	lval* v = malloc(sizeof(lval));
 	v->type = LVAL_NUM;
 	v->num = x;
@@ -123,7 +123,7 @@ void lval_del(lval* v) {
 
 lval* lval_read_num(mpc_ast_t* t) {
 	errno = 0;
-	long x = strtol(t->contents, NULL, 10);
+	double x = strtod(t->contents, NULL);
 	
 	return errno != ERANGE ? lval_num(x) : lval_err("invalid number");
 }
@@ -185,7 +185,7 @@ void lval_print(lval* v) {
 	switch (v->type) {
 		// if type is number, print it
 		case LVAL_NUM:
-			printf("%li", v->num);
+			printf("%g", v->num);
 			break;
 		// if type is error, print based on error
 		case LVAL_ERR:
@@ -258,7 +258,11 @@ lval* builtin_op(lval* a, char* op) {
         }
 
         if (strcmp(op, "%") == 0) {
-            x->num %= y->num;
+            x->num = fmod(x->num, y->num);
+        }
+
+        if (strcmp(op, "^") == 0) {
+            x->num = pow(x->num, y->num);
         }
 
         if (strcmp(op, "/") == 0) {
@@ -316,7 +320,6 @@ lval* eval_op(char* op, lval* x, lval* y) {
 
 	return lval_err(LERR_BAD_OP);
 }
-*/
 
 long power(long x, long y) {
 	long answer = 1;
@@ -328,7 +331,6 @@ long power(long x, long y) {
 	return answer;
 }
 
-/*
 lval* eval(mpc_ast_t* t) {
 	// if tag contains number, return directly
 	if (strstr(t->tag, "number")) {

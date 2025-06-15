@@ -16,7 +16,7 @@ enum Error {
 
 typedef struct lval {
 	int type;
-	long num;
+	double num;
 	// error and symbol types have some string data
 	char* err;
 	char* sym;
@@ -26,7 +26,7 @@ typedef struct lval {
 } lval;
 
 /* lval* constructors */
-lval* lval_num(long x);
+lval* lval_num(double x);
 lval* lval_err(char* m);
 lval* lval_sym(char* s);
 lval* lval_sexpr(void);
@@ -52,5 +52,6 @@ lval* eval(mpc_ast_t* t);
 lval* eval_op(char* op, lval* x, lval* y);
 */
 lval* builtin_op(lval* a, char* op);
-long power(long x, long y);
+
+// long power(long x, long y);
 
