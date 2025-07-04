@@ -48,6 +48,15 @@ lval* lval_sexpr(void) {
 	return v;
 }
 
+lval* lval_qexpr(void) {
+    lval* v = malloc(sizeof(lval));
+    v->type = LVAL_QEXPR;
+    v->count = 0;
+    v->cell = NULL;
+
+    return v;
+}
+
 /*
  * Add a new lval to the list
  */
@@ -108,8 +117,9 @@ void lval_del(lval* v) {
 		case LVAL_SYM:
 			free(v->sym);
 			break;
-		// for Sexpr we need to delete all elements
+		// for Sexpr and Qexpr we need to delete all elements
 		case LVAL_SEXPR:
+        case LVAL_QEXPR:
 			for (int i = 0; i < v->count; i++) {
 				lval_del(v->cell[i]);
 			}
@@ -145,6 +155,10 @@ lval* lval_read(mpc_ast_t* t) {
 		x = lval_sexpr();
 	}
 
+    if (strstr(t->tag, "qexpr")) {
+        x = lval_qexpr();
+    }
+
 	// fill this list with any valid expression contained within
 	for (int i = 0; i < t->children_num; i++) {
 		mpc_ast_t* child = t->children[i];
@@ -154,6 +168,8 @@ lval* lval_read(mpc_ast_t* t) {
 		if (
 			strcmp(contents, "(") == 0 ||
 			strcmp(contents, ")") == 0 ||
+            strcmp(contents, "{") == 0 ||
+            strcmp(contents, "}") == 0 ||
 			strcmp(tag, "regex") == 0
 		   ) {
 			continue;
@@ -214,12 +230,27 @@ void lval_print(lval* v) {
 		case LVAL_SEXPR:
 			lval_expr_print(v, '(', ')');
 			break;
+        case LVAL_QEXPR:
+            lval_expr_print(v, '{', '}');
+            break;
 	}
 }
 
 void lval_println(lval* v) {
 	lval_print(v);
 	putchar('\n');
+}
+
+lval* lval_join(lval* x, lval* y) {
+    // for each cell in 'y' add it to 'x'
+    while (y->count) {
+        x = lval_add(x, lval_pop(y, 0));
+    }
+
+    // delete the empty 'y' and return 'x'
+    lval_del(y);
+
+    return x;
 }
 
 lval* builtin_op(lval* a, char* op) {
@@ -282,82 +313,93 @@ lval* builtin_op(lval* a, char* op) {
 
     return x;
 }
-/*
-lval* eval_op(char* op, lval* x, lval* y) {
-	if (x->type == LVAL_ERR) {
-		return x;
-	}
 
-	if (y->type == LVAL_ERR) {
-		return y;
-	}
+lval* builtin_head(lval* a) {
+    LASSERT(a, a->count == 1, "Function 'head' passed too many arguments!");
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'head' passed incorrect type!");
+    LASSERT(a, a->cell[0]->count != 0, "Function 'head' passed {}!");
 
-	if (strcmp(op, "+") == 0) {
-		return lval_num(x->num + y->num);
-	}
+    lval* v = lval_take(a, 0);
 
-	if (strcmp(op, "-") == 0) {
-		return lval_num(x->num - y->num);
-	}
+    while (v->count > 1) {
+        lval_del(lval_pop(v, 1));
+    }
 
-	if (strcmp(op, "*") == 0) {
-		return lval_num(x->num * y->num);
-	}
-
-	if (strcmp(op, "/") == 0) {
-		return y->num == 0
-			? lval_err(LERR_DIV_ZERO)
-			: lval_num(x->num / y->num);
-	}
-
-	if (strcmp(op, "%") == 0) {
-		return lval_num(x->num % y->num);
-	}
-
-	if (strcmp(op, "^") == 0) {
-		return lval_num(power(x->num, y->num));
-	}
-
-	return lval_err(LERR_BAD_OP);
+    return v;
 }
 
-long power(long x, long y) {
-	long answer = 1;
-
-	do {
-		answer *= x;
-	} while (--y > 0);
-
-	return answer;
+lval* builtin_tail(lval* a) {
+    LASSERT(a, a->count == 1, "Function 'tail' passed too many arguments!");
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'tail' passed incorrect type!");
+    LASSERT(a, a->cell[0]->count != 0, "Function 'tail' passed {}!");
+    
+    lval* v = lval_take(a, 0);
+    lval_del(lval_pop(v, 0));
+    
+    return v;
 }
 
-lval* eval(mpc_ast_t* t) {
-	// if tag contains number, return directly
-	if (strstr(t->tag, "number")) {
-		// check for conversion error
-		errno = 0;
-		long x = strtol(t->contents, NULL, 10);
+lval* builtin_list(lval* a) {
+    a->type = LVAL_QEXPR;
 
-		return errno != ERANGE ? lval_num(x) : lval_err(LERR_BAD_NUM);
-	}
-
-	// operator is always the second child
-	char* op = t->children[1]->contents;
-
-	// get third child
-	lval* x = eval(t->children[2]);
-
-	// iterate remaining children and combine
-	int i = 3;
-	
-	while (strstr(t->children[i]->tag, "expr")) {
-		x = eval_op(op, x, eval(t->children[i]));
-		i++;
-	}
-		
-	return x;
+    return a;
 }
-*/
+
+lval* builtin_eval(lval* a) {
+    LASSERT(a, a->count == 1, "Function 'eval' passed too many arguments!");
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'eval' passed incorrect type!");
+
+    lval* x = lval_take(a, 0);
+    x->type = LVAL_SEXPR;
+
+    return lval_eval(x);
+}
+
+lval* builtin_join(lval* a) {
+    for (int i = 0; i < a->count; i++) {
+        LASSERT(a, a->cell[i]->type == LVAL_QEXPR, "Function 'join' passed incorrect type!");
+    }
+
+    lval* x = lval_pop(a, 0);
+    
+    while (a->count) {
+        x = lval_join(x, lval_pop(a, 0));
+    }
+
+    lval_del(a);
+    
+    return x;    
+}
+
+lval* builtin(lval* a, char* func) {
+    if (strcmp("list", func) == 0) {
+        return builtin_list(a);
+    }
+    
+    if (strcmp("head", func) == 0) {
+        return builtin_head(a);
+    }
+
+    if (strcmp("tail", func) == 0) {
+        return builtin_tail(a);
+    }
+
+    if (strcmp("join", func) == 0) {
+        return builtin_join(a);
+    }
+
+    if (strcmp("eval", func) == 0) {
+        return builtin_eval(a);
+    }
+
+    if (strstr("+-/*", func)) {
+        return builtin_op(a, func);
+    }
+
+    lval_del(a);
+
+    return lval_err("Unknown function!");
+}
 
 lval* lval_eval_sexpr(lval* v) {
 	// evaluate children
@@ -393,7 +435,7 @@ lval* lval_eval_sexpr(lval* v) {
 	}
 
 	// call builtin with operator
-	lval* result = builtin_op(v, f->sym);
+	lval* result = builtin(v, f->sym);
 	lval_del(f);
 
 	return result;

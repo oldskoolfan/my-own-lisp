@@ -1,17 +1,24 @@
 #include "mpc/mpc.h"
 
+#define LASSERT(args, cond, err)    \
+    if (!(cond)) {                  \
+        lval_del(args);             \
+        return lval_err(err);       \
+    }
+
 enum Value { 
 	LVAL_NUM,
 	LVAL_ERR,
 	LVAL_SYM,
-	LVAL_SEXPR
+	LVAL_SEXPR,
+    LVAL_QEXPR,
 };
 
 /* deprecated */
 enum Error {
 	LERR_DIV_ZERO,
 	LERR_BAD_OP,
-	LERR_BAD_NUM
+	LERR_BAD_NUM,
 };
 
 typedef struct lval {
@@ -30,6 +37,7 @@ lval* lval_num(double x);
 lval* lval_err(char* m);
 lval* lval_sym(char* s);
 lval* lval_sexpr(void);
+lval* lval_qexpr(void);
 
 /* lval* memory util functions */
 lval* lval_add(lval* v, lval* x);
@@ -52,6 +60,11 @@ lval* eval(mpc_ast_t* t);
 lval* eval_op(char* op, lval* x, lval* y);
 */
 lval* builtin_op(lval* a, char* op);
+lval* builtin_head(lval* a);
+lval* builtin_tail(lval* a);
+lval* builtin_list(lval* a);
+lval* builtin_eval(lval* a);
+lval* builtin_join(lval* a);
 
 // long power(long x, long y);
 
