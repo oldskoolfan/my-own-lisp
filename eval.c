@@ -314,8 +314,38 @@ lval* builtin_op(lval* a, char* op) {
     return x;
 }
 
+void add_quotes(char* quoted, char* raw) {
+    *quoted++ = '\'';
+
+    while ((*quoted = *raw) != '\0') {
+        quoted++;
+        raw++;
+    }
+
+    *quoted = '\'';    
+}
+
+char* too_many_args_msg(char* fn_name) {
+    char* msg_prefix = "Function ";
+    char* msg_suffix = " passed too many arguments!";
+    
+    // add single quotes to function name
+    char* quoted_fn_name = malloc(strlen(fn_name) + 3);
+    add_quotes(quoted_fn_name, fn_name);
+    
+    char* formatted_msg = malloc(strlen(msg_prefix) + strlen(quoted_fn_name) + strlen(msg_suffix) + 1);
+    *formatted_msg = '\0';
+
+    return strcat(
+        strcat(
+            strcat(formatted_msg, msg_prefix),
+            quoted_fn_name),
+        msg_suffix);
+}
+
 lval* builtin_head(lval* a) {
-    LASSERT(a, a->count == 1, "Function 'head' passed too many arguments!");
+    LASSERT(a, a->count == 1, too_many_args_msg("head"));
+    //LASSERT(a, a->count == 1, "Function 'head' passed too many arguments!");
     LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'head' passed incorrect type!");
     LASSERT(a, a->cell[0]->count != 0, "Function 'head' passed {}!");
 
