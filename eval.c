@@ -74,7 +74,7 @@ lval* lval_add(lval* v, lval* x) {
 lval* lval_pop(lval* v, int i) {
     // find the item at i
     lval* x = v->cell[i];
-    
+
     // shift the memory
     memmove(
         &v->cell[i],
@@ -84,7 +84,7 @@ lval* lval_pop(lval* v, int i) {
 
     // decrease list count (can this be done above?)
     v->count--;
-    
+
     // reallocate memory used
     v->cell = realloc(v->cell, sizeof(lval*) * v->count);
 
@@ -134,7 +134,7 @@ void lval_del(lval* v) {
 lval* lval_read_num(mpc_ast_t* t) {
 	errno = 0;
 	double x = strtod(t->contents, NULL);
-	
+
 	return errno != ERANGE ? lval_num(x) : lval_err("invalid number");
 }
 
@@ -174,8 +174,8 @@ lval* lval_read(mpc_ast_t* t) {
 		   ) {
 			continue;
 		}
-		
-		x = lval_add(x, lval_read(child));	
+
+		x = lval_add(x, lval_read(child));
 	}
 
 	return x;
@@ -262,7 +262,7 @@ lval* builtin_op(lval* a, char* op) {
             return lval_err("Cannot operate on non-number!");
         }
     }
-    
+
     // pop first element
     lval* x = lval_pop(a, 0);
 
@@ -322,32 +322,36 @@ void add_quotes(char* quoted, char* raw) {
         raw++;
     }
 
-    *quoted = '\'';    
+    *quoted = '\'';
 }
 
-char* too_many_args_msg(char* fn_name) {
+char* format_err_msg(char* fn_name, char* msg_suffix) {
     char* msg_prefix = "Function ";
-    char* msg_suffix = " passed too many arguments!";
-    
+    //char* msg_suffix = " passed too many arguments!";
+
     // add single quotes to function name
     char* quoted_fn_name = malloc(strlen(fn_name) + 3);
     add_quotes(quoted_fn_name, fn_name);
-    
+
     char* formatted_msg = malloc(strlen(msg_prefix) + strlen(quoted_fn_name) + strlen(msg_suffix) + 1);
     *formatted_msg = '\0';
 
     return strcat(
         strcat(
-            strcat(formatted_msg, msg_prefix),
-            quoted_fn_name),
+            strcat(
+                strcat(formatted_msg, msg_prefix),
+                quoted_fn_name),
+            " "),
         msg_suffix);
 }
 
 lval* builtin_head(lval* a) {
-    LASSERT(a, a->count == 1, too_many_args_msg("head"));
+    LASSERT(a, a->count == 1, format_err_msg("head", "passed too many arguments!"));
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, format_err_msg("head", "passed incorrect type!"));
+    LASSERT(a, a->cell[0]->count != 0, format_err_msg("head", "passed {}!"));
     //LASSERT(a, a->count == 1, "Function 'head' passed too many arguments!");
-    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'head' passed incorrect type!");
-    LASSERT(a, a->cell[0]->count != 0, "Function 'head' passed {}!");
+    //LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'head' passed incorrect type!");
+    //LASSERT(a, a->cell[0]->count != 0, "Function 'head' passed {}!");
 
     lval* v = lval_take(a, 0);
 
@@ -362,10 +366,10 @@ lval* builtin_tail(lval* a) {
     LASSERT(a, a->count == 1, "Function 'tail' passed too many arguments!");
     LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'tail' passed incorrect type!");
     LASSERT(a, a->cell[0]->count != 0, "Function 'tail' passed {}!");
-    
+
     lval* v = lval_take(a, 0);
     lval_del(lval_pop(v, 0));
-    
+
     return v;
 }
 
@@ -391,21 +395,21 @@ lval* builtin_join(lval* a) {
     }
 
     lval* x = lval_pop(a, 0);
-    
+
     while (a->count) {
         x = lval_join(x, lval_pop(a, 0));
     }
 
     lval_del(a);
-    
-    return x;    
+
+    return x;
 }
 
 lval* builtin(lval* a, char* func) {
     if (strcmp("list", func) == 0) {
         return builtin_list(a);
     }
-    
+
     if (strcmp("head", func) == 0) {
         return builtin_head(a);
     }
@@ -479,4 +483,3 @@ lval* lval_eval(lval* v) {
 
 	return v;
 }
-
