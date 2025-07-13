@@ -205,23 +205,6 @@ void lval_print(lval* v) {
 			break;
 		// if type is error, print based on error
 		case LVAL_ERR:
-			/*
-			char* err_msg;
-
-			switch (v->err) {
-				case LERR_DIV_ZERO:
-					err_msg = "Division By Zero!";
-					break;
-				case LERR_BAD_OP:
-					err_msg = "Invalid Operator!";
-					break;
-				case LERR_BAD_NUM:
-					err_msg = "Invalid Number!";
-					break;
-			}
-
-			printf("Error: %s\n", err_msg);
-			*/
 			printf("Error: %s", v->err);
 			break;
 		case LVAL_SYM:
@@ -325,9 +308,20 @@ void add_quotes(char* quoted, char* raw) {
     *quoted = '\'';
 }
 
-char* format_err_msg(char* fn_name, char* msg_suffix) {
+char* get_msg_suffix(enum QexprErrorType err_type) {
+    switch (err_type) {
+        case ERR_TYPE_TOO_MANY_ARGS:
+            return "passed too many arguments!";
+        case ERR_TYPE_INCORRECT_TYPE:
+            return "passed incorrect type!";
+        case ERR_TYPE_EMPTY_EXPR:
+            return "passed {}!";
+    }
+}
+
+char* format_err_msg(char* fn_name, enum QexprErrorType err_type) {
     char* msg_prefix = "Function ";
-    //char* msg_suffix = " passed too many arguments!";
+    char* msg_suffix = get_msg_suffix(err_type);
 
     // add single quotes to function name
     char* quoted_fn_name = malloc(strlen(fn_name) + 3);
@@ -346,12 +340,10 @@ char* format_err_msg(char* fn_name, char* msg_suffix) {
 }
 
 lval* builtin_head(lval* a) {
-    LASSERT(a, a->count == 1, format_err_msg("head", "passed too many arguments!"));
-    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, format_err_msg("head", "passed incorrect type!"));
-    LASSERT(a, a->cell[0]->count != 0, format_err_msg("head", "passed {}!"));
-    //LASSERT(a, a->count == 1, "Function 'head' passed too many arguments!");
-    //LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'head' passed incorrect type!");
-    //LASSERT(a, a->cell[0]->count != 0, "Function 'head' passed {}!");
+    char* fn_name = "head";
+    LASSERT(a, a->count == 1, format_err_msg(fn_name, ERR_TYPE_TOO_MANY_ARGS));
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, format_err_msg(fn_name, ERR_TYPE_INCORRECT_TYPE));
+    LASSERT(a, a->cell[0]->count != 0, format_err_msg(fn_name, ERR_TYPE_EMPTY_EXPR));
 
     lval* v = lval_take(a, 0);
 
@@ -363,9 +355,10 @@ lval* builtin_head(lval* a) {
 }
 
 lval* builtin_tail(lval* a) {
-    LASSERT(a, a->count == 1, "Function 'tail' passed too many arguments!");
-    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'tail' passed incorrect type!");
-    LASSERT(a, a->cell[0]->count != 0, "Function 'tail' passed {}!");
+    char* fn_name = "tail";
+    LASSERT(a, a->count == 1, format_err_msg(fn_name, ERR_TYPE_TOO_MANY_ARGS));
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, format_err_msg(fn_name, ERR_TYPE_INCORRECT_TYPE));
+    LASSERT(a, a->cell[0]->count != 0, format_err_msg(fn_name, ERR_TYPE_EMPTY_EXPR));
 
     lval* v = lval_take(a, 0);
     lval_del(lval_pop(v, 0));
@@ -380,8 +373,9 @@ lval* builtin_list(lval* a) {
 }
 
 lval* builtin_eval(lval* a) {
-    LASSERT(a, a->count == 1, "Function 'eval' passed too many arguments!");
-    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, "Function 'eval' passed incorrect type!");
+    char* fn_name = "eval";
+    LASSERT(a, a->count == 1, format_err_msg(fn_name, ERR_TYPE_TOO_MANY_ARGS));
+    LASSERT(a, a->cell[0]->type == LVAL_QEXPR, format_err_msg(fn_name, ERR_TYPE_INCORRECT_TYPE));
 
     lval* x = lval_take(a, 0);
     x->type = LVAL_SEXPR;
@@ -390,8 +384,9 @@ lval* builtin_eval(lval* a) {
 }
 
 lval* builtin_join(lval* a) {
+    char* fn_name = "join";
     for (int i = 0; i < a->count; i++) {
-        LASSERT(a, a->cell[i]->type == LVAL_QEXPR, "Function 'join' passed incorrect type!");
+        LASSERT(a, a->cell[i]->type == LVAL_QEXPR, format_err_msg(fn_name, ERR_TYPE_INCORRECT_TYPE));
     }
 
     lval* x = lval_pop(a, 0);

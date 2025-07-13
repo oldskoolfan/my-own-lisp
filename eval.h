@@ -6,7 +6,7 @@
         return lval_err(err);       \
     }
 
-enum Value { 
+enum Value {
 	LVAL_NUM,
 	LVAL_ERR,
 	LVAL_SYM,
@@ -19,6 +19,12 @@ enum Error {
 	LERR_DIV_ZERO,
 	LERR_BAD_OP,
 	LERR_BAD_NUM,
+};
+
+enum QexprErrorType {
+    ERR_TYPE_TOO_MANY_ARGS,
+    ERR_TYPE_INCORRECT_TYPE,
+    ERR_TYPE_EMPTY_EXPR,
 };
 
 typedef struct lval {
